@@ -35,7 +35,7 @@ class FaceDetector:
         buffer = []
 
         for image in images:
-            buffer.append(self.detector(image, upsample_num_times=1))
+            buffer.append(self.detector(image, upsample_num_times=0))
 
         return buffer
 
