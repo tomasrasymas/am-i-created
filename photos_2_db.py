@@ -128,6 +128,12 @@ def run(input, output, append, batch_size, max_workers):
     landmarks_predictor = LandmarksPredictor()
     face_recognizer = FaceRecognizer()
     storage = DataStorage(db_file_name=output, append=append)
+    done_files_counter = 0
+
+    def task_done(future):
+        nonlocal done_files_counter
+        done_files_counter += batch_size
+        print('Done %s files' % done_files_counter)
 
     def task(files_path):
         print('Processing %s' % files_path)
@@ -139,14 +145,10 @@ def run(input, output, append, batch_size, max_workers):
 
         storage(files_path=files_path, features=features)
 
-    files_counter = 0
-
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for files_path in photos_scanner(root_path=input):
-            files_counter += len(files_path)
-            print('%s files loaded' % files_counter)
-
-            executor.submit(task, files_path)
+            future = executor.submit(task, files_path)
+            future.add_done_callback(task_done)
 
     print('Finished')
 
@@ -159,9 +161,9 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', dest='output', type=str, metavar='',
                         required=False, help='Path of DB file', default='output.db')
     parser.add_argument('-b', '--batch_size', dest='batch_size', type=int, metavar='',
-                        required=False, help='Size of batch to process files', default=3)
+                        required=False, help='Size of batch to process files', default=2)
     parser.add_argument('-w', '--max_workers', dest='max_workers', type=int, metavar='',
-                        required=False, help='Max workers for processing', default=5)
+                        required=False, help='Max workers for processing', default=2)
     parser.add_argument('-a', '--append', dest='append', action='store_true',
                         required=False, help='Append to existing DB file', default=False)
 
