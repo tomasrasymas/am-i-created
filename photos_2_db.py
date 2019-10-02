@@ -42,7 +42,7 @@ class FaceDetector:
 
 class LandmarksPredictor:
     def __init__(self):
-        self.predictor = dlib.shape_predictor('data/models/shape_predictor_68_face_landmarks.dat')
+        self.predictor = dlib.shape_predictor('data/models/shape_predictor_5_face_landmarks.dat')
 
     def __call__(self, images, faces):
         buffer = []
