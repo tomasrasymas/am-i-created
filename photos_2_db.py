@@ -3,6 +3,8 @@ import dlib
 import os
 import sqlite3
 import json
+from concurrent.futures import ThreadPoolExecutor
+import cv2
 
 
 def object_2_json(obj):
@@ -14,9 +16,13 @@ class ImageLoader:
         buffer = []
         if isinstance(file_path, list):
             for f in file_path:
-                buffer.append(dlib.load_rgb_image(f))
+                tmp_img = cv2.imread(f)
+                tmp_img = cv2.cvtColor(tmp_img, cv2.COLOR_BGR2RGB)
+                buffer.append(tmp_img)
         else:
-            buffer.append(dlib.load_rgb_image(file_path))
+            tmp_img = cv2.imread(file_path)
+            tmp_img = cv2.cvtColor(tmp_img, cv2.COLOR_BGR2RGB)
+            buffer.append(tmp_img)
 
         return buffer
 
@@ -92,7 +98,7 @@ class DataStorage:
             if os.path.isfile(db_file_name):
                 os.remove(db_file_name)
 
-        self.connection = sqlite3.connect(db_file_name)
+        self.connection = sqlite3.connect(db_file_name, check_same_thread=False)
 
         if not append:
             self.connection.execute('DROP TABLE IF EXISTS features')
@@ -115,19 +121,16 @@ class DataStorage:
                     ''', (file_path, object_2_json(list(feature))))
 
 
-def run(input, output, append):
-    photos_scanner = PhotosScanner()
+def run(input, output, append, batch_size, max_workers):
+    photos_scanner = PhotosScanner(batch_size=batch_size)
     image_loader = ImageLoader()
     face_detector = FaceDetector()
     landmarks_predictor = LandmarksPredictor()
     face_recognizer = FaceRecognizer()
     storage = DataStorage(db_file_name=output, append=append)
 
-    files_counter = 0
-
-    for files_path in photos_scanner(root_path=input):
-        files_counter += len(files_path)
-
+    def task(files_path):
+        print('Processing %s' % files_path)
         images = image_loader(file_path=files_path)
         faces = face_detector(images=images)
 
@@ -136,18 +139,29 @@ def run(input, output, append):
 
         storage(files_path=files_path, features=features)
 
-        print('%s files processed' % files_counter)
+    files_counter = 0
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for files_path in photos_scanner(root_path=input):
+            files_counter += len(files_path)
+            print('%s files loaded' % files_counter)
+
+            executor.submit(task, files_path)
+
+    print('Finished')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Photos path to db',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--input', dest='input', type=str, metavar='',
-                        required=False, help='Path of single image or root photos path to scan', default='data/tmp_images')
+                        required=False, help='Path of single image or root photos path to scan', default='data/images')
     parser.add_argument('-o', '--output', dest='output', type=str, metavar='',
                         required=False, help='Path of DB file', default='output.db')
     parser.add_argument('-b', '--batch_size', dest='batch_size', type=int, metavar='',
-                        required=False, help='Size of batch to process files', default=1000)
+                        required=False, help='Size of batch to process files', default=3)
+    parser.add_argument('-w', '--max_workers', dest='max_workers', type=int, metavar='',
+                        required=False, help='Max workers for processing', default=5)
     parser.add_argument('-a', '--append', dest='append', action='store_true',
                         required=False, help='Append to existing DB file', default=False)
 
@@ -159,4 +173,4 @@ if __name__ == '__main__':
 
     print('*' * 50)
 
-    run(args.input, args.output, args.append)
+    run(args.input, args.output, args.append, args.batch_size, args.max_workers)
