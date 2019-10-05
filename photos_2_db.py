@@ -5,6 +5,7 @@ import sqlite3
 import json
 from concurrent.futures import ThreadPoolExecutor
 import cv2
+import time
 
 
 def object_2_json(obj):
@@ -12,16 +13,18 @@ def object_2_json(obj):
 
 
 class ImageLoader:
-    def __call__(self, file_path):
+    def __call__(self, file_path, width, height):
         buffer = []
         if isinstance(file_path, list):
             for f in file_path:
                 tmp_img = cv2.imread(f)
                 tmp_img = cv2.cvtColor(tmp_img, cv2.COLOR_BGR2RGB)
+                tmp_img = cv2.resize(tmp_img, (width, height))
                 buffer.append(tmp_img)
         else:
             tmp_img = cv2.imread(file_path)
             tmp_img = cv2.cvtColor(tmp_img, cv2.COLOR_BGR2RGB)
+            tmp_img = cv2.resize(tmp_img, (width, height))
             buffer.append(tmp_img)
 
         return buffer
@@ -35,7 +38,7 @@ class FaceDetector:
         buffer = []
 
         for image in images:
-            buffer.append(self.detector(image, upsample_num_times=0))
+            buffer.append(self.detector(image, upsample_num_times=1))
 
         return buffer
 
@@ -137,13 +140,17 @@ def run(input, output, append, batch_size, max_workers):
 
     def task(files_path):
         print('Processing %s' % files_path)
-        images = image_loader(file_path=files_path)
+        start_time = time.time()
+
+        images = image_loader(file_path=files_path, width=200, height=200)
         faces = face_detector(images=images)
 
         landmarks = landmarks_predictor(images=images, faces=faces)
         features = face_recognizer(images=images, landmarks=landmarks)
 
         storage(files_path=files_path, features=features)
+
+        print('Took %0.3f s. too process %s files' % ((time.time() - start_time), len(files_path)))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for files_path in photos_scanner(root_path=input):
@@ -161,9 +168,9 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', dest='output', type=str, metavar='',
                         required=False, help='Path of DB file', default='output.db')
     parser.add_argument('-b', '--batch_size', dest='batch_size', type=int, metavar='',
-                        required=False, help='Size of batch to process files', default=2)
+                        required=False, help='Size of batch to process files', default=15)
     parser.add_argument('-w', '--max_workers', dest='max_workers', type=int, metavar='',
-                        required=False, help='Max workers for processing', default=2)
+                        required=False, help='Max workers for processing', default=7)
     parser.add_argument('-a', '--append', dest='append', action='store_true',
                         required=False, help='Append to existing DB file', default=False)
 

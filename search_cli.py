@@ -26,14 +26,14 @@ def run(database_path, index_path):
             print('File %s not exists.' % index_path)
             continue
 
-        images = image_loader(file_path=input_image)
+        images = image_loader(file_path=input_image, width=200, height=200)
         faces = face_detector(images=images)
         landmarks = landmarks_predictor(images=images, faces=faces)
         features = face_recognizer(images=images, landmarks=landmarks)
 
         for feature in features[0]:
             f = list(feature)
-            nearest = index.get_nns_by_vector(f, 1, search_k=-1, include_distances=True)
+            nearest = index.get_nns_by_vector(f, 3, search_k=-1, include_distances=True)
 
             for idx, distance in zip(nearest[0], nearest[1]):
                 cur = connection.cursor()
