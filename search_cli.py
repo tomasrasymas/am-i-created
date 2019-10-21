@@ -9,7 +9,7 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def run(database_path, index_path):
+def run(database_path, index_path, n_items):
     connection = sqlite3.connect(database_path)
     index = annoy.AnnoyIndex(128, 'euclidean')
     index.load(index_path)
@@ -33,7 +33,7 @@ def run(database_path, index_path):
 
         for feature in features[0]:
             f = list(feature)
-            nearest = index.get_nns_by_vector(f, 3, search_k=-1, include_distances=True)
+            nearest = index.get_nns_by_vector(f, n_items, search_k=None, include_distances=True)
 
             for idx, distance in zip(nearest[0], nearest[1]):
                 cur = connection.cursor()
@@ -51,6 +51,8 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-db', '--database', dest='database_path', type=str, metavar='',
                         required=False, help='DB path', default='output.db')
+    parser.add_argument('-n', '--n_items', dest='n_items', type=str, metavar='',
+                        required=False, help='`n` closest items', default=3)
     parser.add_argument('-idx', '--index', dest='index_path', type=str, metavar='',
                         required=False, help='Index path', default='index.ann')
 
@@ -62,4 +64,4 @@ if __name__ == '__main__':
 
     print('*' * 50)
 
-    run(args.database_path, args.index_path)
+    run(args.database_path, args.index_path, args.n_items)
