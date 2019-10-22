@@ -55,3 +55,12 @@ optional arguments:
 ```
 
 This script accepts face image path, reads that image and performs search in indexed faces to find most similar faces.
+
+## Example
+
+I indexed 1 million GAN generated fake faces from https://archive.org/details/1mFakeFaces and performed search for some faces. Bellow you can see some results. `Original` - image used for search, `Fake` - most similar fake face found in dataset.  
+
+
+![sample 1](docs/sample1.png)
+
+![sample 2](docs/sample2.png)
